@@ -98,4 +98,4 @@ if __name__ == "__main__":
 ```
 
 ## Python version
-Tested with Python 3.6 only. Should work with any version of Python 3.
+Tested with Python 3.6 and PyTorch 1.1.0. Should work with any version of Python 3.
