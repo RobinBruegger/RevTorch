@@ -1,6 +1,19 @@
 # RevTorch
 Framework for creating (partially) reversible neural networks with PyTorch
 
+RevTorch is introduced and explained in our paper [A Partially Reversible U-Net for Memory-Efficient Volumetric Image Segmentation](https://arxiv.org/abs/1906.06148),
+which was accepted for presentation at [MICCAI 2019](https://www.miccai2019.org/). 
+
+If you find this code helpful in your research please cite the following paper:
+```
+@article{PartiallyRevUnet2019Bruegger,
+         author={Br{\"u}gger, Robin and Baumgartner, Christian F.
+         and Konukoglu, Ender},
+         title={A Partially Reversible U-Net for Memory-Efficient Volumetric Image Segmentation},
+         journal={arXiv:1906.06148},
+         year={2019},
+```
+
 ## Installation
 Use pip to install RevTorch:
 ```sh
