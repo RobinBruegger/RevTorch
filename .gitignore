@@ -1,3 +1,4 @@
 dist/
 MANIFEST
 *.py[cod]
+revtorch.egg-info/

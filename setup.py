@@ -1,10 +1,16 @@
-from distutils.core import setup
+from setuptools import setup
+
+with open("README.md", "r") as fh:
+    long_description = fh.read()
+
 setup(
   name = 'revtorch', 
   packages = ['revtorch'],
-  version = '0.1.0', 
+  version = '0.1.1', 
   license='bsd-3-clause',
   description = 'Framework for creating (partially) reversible neural networks with PyTorch',
+  long_description=long_description,
+  long_description_content_type="text/markdown",
   author = 'Robin Brügger',
   author_email = 'brueggerrobin+revtorch@gmail.com',
   url = 'https://github.com/RobinBruegger/RevTorch',
