@@ -99,3 +99,11 @@ if __name__ == "__main__":
 
 ## Python version
 Tested with Python 3.6 and PyTorch 1.1.0. Should work with any version of Python 3.
+
+## Changelog
+
+#### Version 0.2.0
+- Fixed memory leak when not consuming output of the reversible block ([Issue](https://github.com/RobinBruegger/RevTorch/issues/1))
+
+#### Version 0.1.0
+- Initial release
