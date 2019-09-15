@@ -123,7 +123,7 @@ class _ReversibleModuleFunction(torch.autograd.function.Function):
         for block in reversible_blocks:
             assert (isinstance(block, ReversibleBlock))
             x = block(x)
-        ctx.y = x #not using ctx.save_for_backward(x) saves us memory by beeing able to free ctx.y earlier in the backward pass
+        ctx.y = x.detach() #not using ctx.save_for_backward(x) saves us memory by beeing able to free ctx.y earlier in the backward pass
         ctx.reversible_blocks = reversible_blocks
         return x
 
