@@ -102,6 +102,9 @@ Tested with Python 3.6 and PyTorch 1.1.0. Should work with any version of Python
 
 ## Changelog
 
+#### Version 0.2.1
+- Added option to select the dimension along which the tensor is split ([Pull request](https://github.com/RobinBruegger/RevTorch/pull/2))
+
 #### Version 0.2.0
 - Fixed memory leak when not consuming output of the reversible block ([Issue](https://github.com/RobinBruegger/RevTorch/issues/1))
 
