@@ -4,8 +4,6 @@ import torch.nn as nn
 import sys
 import random
 
-MAXINT = 2147483647
-
 class ReversibleBlock(nn.Module):
     '''
     Elementary building block for building (partially) reversible architectures
@@ -19,17 +17,19 @@ class ReversibleBlock(nn.Module):
         g_block (nn.Module): arbitrary subnetwork whos output shape is equal to its input shape
     '''
 
-    def __init__(self, f_block, g_block, split_along_dim=1):
+    def __init__(self, f_block, g_block, split_along_dim=1, fix_random_seed = False):
         super(ReversibleBlock, self).__init__()
         self.f_block = f_block
         self.g_block = g_block
         self.split_along_dim = split_along_dim
+        self.fix_random_seed = fix_random_seed
+        self.random_seeds = {}
 
-    def set_random_seed(self, namespace, new = False):
+    def set_seed(self, namespace, new = False):
         if not self.fix_random_seed:
             return
         if new:
-            self.random_seeds[namespace] = random.randint(0, MAXINT)
+            self.random_seeds[namespace] = random.randint(0, sys.maxsize)
         torch.manual_seed(self.random_seeds[namespace])
 
     def forward(self, x):
@@ -41,9 +41,9 @@ class ReversibleBlock(nn.Module):
         x1, x2 = torch.chunk(x, 2, dim=self.split_along_dim)
         y1, y2 = None, None
         with torch.no_grad():
-            self.set_random_seed('f', new=True)
+            self.set_seed('f', new=True)
             y1 = x1 + self.f_block(x2)
-            self.set_random_seed('g', new=True)
+            self.set_seed('g', new=True)
             y2 = x2 + self.g_block(y1)
 
         return torch.cat([y1, y2], dim=self.split_along_dim)
@@ -77,7 +77,7 @@ class ReversibleBlock(nn.Module):
 
         # Ensures that PyTorch tracks the operations in a DAG
         with torch.enable_grad():
-            self.set_random_seed('g')
+            self.set_seed('g')
             gy1 = self.g_block(y1)
 
             # Use autograd framework to differentiate the calculation. The
@@ -97,7 +97,7 @@ class ReversibleBlock(nn.Module):
 
         with torch.enable_grad():
             x2.requires_grad = True
-            self.set_random_seed('f')
+            self.set_seed('f')
             fx2 = self.f_block(x2)
 
             # Use autograd framework to differentiate the calculation. The
