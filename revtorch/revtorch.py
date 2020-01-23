@@ -1,6 +1,10 @@
 import torch
 import torch.nn as nn
 #import torch.autograd.function as func
+import sys
+import random
+
+MAXINT = 2147483647
 
 class ReversibleBlock(nn.Module):
     '''
@@ -21,6 +25,13 @@ class ReversibleBlock(nn.Module):
         self.g_block = g_block
         self.split_along_dim = split_along_dim
 
+    def set_random_seed(self, namespace, new = False):
+        if not self.fix_random_seed:
+            return
+        if new:
+            self.random_seeds[namespace] = random.randint(0, MAXINT)
+        torch.manual_seed(self.random_seeds[namespace])
+
     def forward(self, x):
         """
         Performs the forward pass of the reversible block. Does not record any gradients.
@@ -30,7 +41,9 @@ class ReversibleBlock(nn.Module):
         x1, x2 = torch.chunk(x, 2, dim=self.split_along_dim)
         y1, y2 = None, None
         with torch.no_grad():
+            self.set_random_seed('f', new=True)
             y1 = x1 + self.f_block(x2)
+            self.set_random_seed('g', new=True)
             y2 = x2 + self.g_block(y1)
 
         return torch.cat([y1, y2], dim=self.split_along_dim)
@@ -64,6 +77,7 @@ class ReversibleBlock(nn.Module):
 
         # Ensures that PyTorch tracks the operations in a DAG
         with torch.enable_grad():
+            self.set_random_seed('g')
             gy1 = self.g_block(y1)
 
             # Use autograd framework to differentiate the calculation. The
@@ -83,6 +97,7 @@ class ReversibleBlock(nn.Module):
 
         with torch.enable_grad():
             x2.requires_grad = True
+            self.set_random_seed('f')
             fx2 = self.f_block(x2)
 
             # Use autograd framework to differentiate the calculation. The
