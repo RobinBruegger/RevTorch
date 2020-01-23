@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 #import torch.autograd.function as func
+import sys
+import random
 
 class ReversibleBlock(nn.Module):
     '''
@@ -13,13 +15,26 @@ class ReversibleBlock(nn.Module):
     Arguments:
         f_block (nn.Module): arbitrary subnetwork whos output shape is equal to its input shape
         g_block (nn.Module): arbitrary subnetwork whos output shape is equal to its input shape
+        split_along_dim (integer): dimension along which the tensor is split into the two parts requried for the reversible block
+        fix_random_seed (boolean): Use the same random seed for the forward and backward pass if set to true 
     '''
 
-    def __init__(self, f_block, g_block, split_along_dim=1):
+    def __init__(self, f_block, g_block, split_along_dim=1, fix_random_seed = False):
         super(ReversibleBlock, self).__init__()
         self.f_block = f_block
         self.g_block = g_block
         self.split_along_dim = split_along_dim
+        self.fix_random_seed = fix_random_seed
+        self.random_seeds = {}
+
+    def _init_seed(self, namespace):
+        if self.fix_random_seed:
+            self.random_seeds[namespace] = random.randint(0, sys.maxsize)
+            set_seed(namespace)
+
+    def _set_seed(self, namespace):
+        if self.fix_random_seed:
+            torch.manual_seed(self.random_seeds[namespace])
 
     def forward(self, x):
         """
@@ -30,7 +45,9 @@ class ReversibleBlock(nn.Module):
         x1, x2 = torch.chunk(x, 2, dim=self.split_along_dim)
         y1, y2 = None, None
         with torch.no_grad():
+            self._init_seed('f')
             y1 = x1 + self.f_block(x2)
+            self._init_seed('g')
             y2 = x2 + self.g_block(y1)
 
         return torch.cat([y1, y2], dim=self.split_along_dim)
@@ -64,6 +81,7 @@ class ReversibleBlock(nn.Module):
 
         # Ensures that PyTorch tracks the operations in a DAG
         with torch.enable_grad():
+            self._set_seed('g')
             gy1 = self.g_block(y1)
 
             # Use autograd framework to differentiate the calculation. The
@@ -83,6 +101,7 @@ class ReversibleBlock(nn.Module):
 
         with torch.enable_grad():
             x2.requires_grad = True
+            self._set_seed('f')
             fx2 = self.f_block(x2)
 
             # Use autograd framework to differentiate the calculation. The
