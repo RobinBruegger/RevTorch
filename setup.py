@@ -6,7 +6,7 @@ with open("README.md", "r") as fh:
 setup(
   name = 'revtorch', 
   packages = ['revtorch'],
-  version = '0.2.1', 
+  version = '0.2.3', 
   license='bsd-3-clause',
   description = 'Framework for creating (partially) reversible neural networks with PyTorch',
   long_description=long_description,
@@ -14,7 +14,7 @@ setup(
   author = 'Robin Brügger',
   author_email = 'brueggerrobin+revtorch@gmail.com',
   url = 'https://github.com/RobinBruegger/RevTorch',
-  download_url = 'https://github.com/RobinBruegger/RevTorch/archive/v0.2.1.tar.gz',
+  download_url = 'https://github.com/RobinBruegger/RevTorch/archive/v0.2.3.tar.gz',
   keywords = ['reversbile neural network'],
   install_requires=[],
   classifiers=[
