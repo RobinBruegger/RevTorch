@@ -30,7 +30,7 @@ class ReversibleBlock(nn.Module):
     def _init_seed(self, namespace):
         if self.fix_random_seed:
             self.random_seeds[namespace] = random.randint(0, sys.maxsize)
-            set_seed(namespace)
+            self._set_seed(namespace)
 
     def _set_seed(self, namespace):
         if self.fix_random_seed:
