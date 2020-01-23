@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-#import torch.autograd.function as func
 import sys
 import random
 
@@ -36,7 +35,7 @@ class ReversibleBlock(nn.Module):
         if self.fix_random_seed:
             torch.manual_seed(self.random_seeds[namespace])
 
-    def forward(self, x):
+    def forward(self, x, f_args = [], g_args = []):
         """
         Performs the forward pass of the reversible block. Does not record any gradients.
         :param x: Input tensor. Must be splittable along dimension 1.
@@ -46,13 +45,13 @@ class ReversibleBlock(nn.Module):
         y1, y2 = None, None
         with torch.no_grad():
             self._init_seed('f')
-            y1 = x1 + self.f_block(x2)
+            y1 = x1 + self.f_block(x2, *f_args)
             self._init_seed('g')
-            y2 = x2 + self.g_block(y1)
+            y2 = x2 + self.g_block(y1, *g_args)
 
         return torch.cat([y1, y2], dim=self.split_along_dim)
 
-    def backward_pass(self, y, dy):
+    def backward_pass(self, y, dy, f_args = [], g_args = []):
         """
         Performs the backward pass of the reversible block.
 
@@ -82,7 +81,7 @@ class ReversibleBlock(nn.Module):
         # Ensures that PyTorch tracks the operations in a DAG
         with torch.enable_grad():
             self._set_seed('g')
-            gy1 = self.g_block(y1)
+            gy1 = self.g_block(y1, *g_args)
 
             # Use autograd framework to differentiate the calculation. The
             # derivatives of the parameters of G are set as a side effect
@@ -102,7 +101,7 @@ class ReversibleBlock(nn.Module):
         with torch.enable_grad():
             x2.requires_grad = True
             self._set_seed('f')
-            fx2 = self.f_block(x2)
+            fx2 = self.f_block(x2, *f_args)
 
             # Use autograd framework to differentiate the calculation. The
             # derivatives of the parameters of F are set as a side effec
@@ -131,7 +130,7 @@ class _ReversibleModuleFunction(torch.autograd.function.Function):
     '''
 
     @staticmethod
-    def forward(ctx, x, reversible_blocks):
+    def forward(ctx, x, reversible_blocks, f_args = None, g_args = None):
         '''
         Performs the forward pass of a reversible sequence within the autograd framework
         :param ctx: autograd context
@@ -139,10 +138,11 @@ class _ReversibleModuleFunction(torch.autograd.function.Function):
         :param reversible_blocks: nn.Modulelist of reversible blocks
         :return: output tensor
         '''
+        ctx.saved_args = (f_args, g_args)
         assert (isinstance(reversible_blocks, nn.ModuleList))
         for block in reversible_blocks:
             assert (isinstance(block, ReversibleBlock))
-            x = block(x)
+            x = block(x, f_args, g_args)
         ctx.y = x.detach() #not using ctx.save_for_backward(x) saves us memory by beeing able to free ctx.y earlier in the backward pass
         ctx.reversible_blocks = reversible_blocks
         return x
@@ -155,12 +155,13 @@ class _ReversibleModuleFunction(torch.autograd.function.Function):
         :param dy: derivatives of the outputs
         :return: derivatives of the inputs
         '''
+        f_args, g_args = ctx.saved_args
         y = ctx.y
         del ctx.y
         for i in range(len(ctx.reversible_blocks) - 1, -1, -1):
-            y, dy = ctx.reversible_blocks[i].backward_pass(y, dy)
+            y, dy = ctx.reversible_blocks[i].backward_pass(y, dy, f_args, g_args)
         del ctx.reversible_blocks
-        return dy, None
+        return dy, None, None, None
 
 class ReversibleSequence(nn.Module):
     '''
@@ -183,11 +184,15 @@ class ReversibleSequence(nn.Module):
 
         self.reversible_blocks = reversible_blocks
 
-    def forward(self, x):
+    def forward(self, x, f_args=None, g_args=None):
         '''
         Forward pass of a reversible sequence
         :param x: Input tensor
+        :param f_args: Further arguments to pass to F block, as a tuple
+        :param g_args: Further arguments to pass to G block, as a tuple
         :return: Output tensor
         '''
-        x = _ReversibleModuleFunction.apply(x, self.reversible_blocks)
+        assert(isinstance(f_args, tuple))
+        assert(isinstance(g_args, tuple))
+        x = _ReversibleModuleFunction.apply(x, self.reversible_blocks, f_args, g_args)
         return x
