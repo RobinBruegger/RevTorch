@@ -77,8 +77,7 @@ class PartiallyReversibleNet(nn.Module):
             blocks.append(rv.ReversibleBlock(f_func, g_func))
 
         #pack all reversible blocks into a reversible sequence
-        #eagerly discard variables to save even more memory, if you are sure you will not backward more than once
-        self.sequence = rv.ReversibleSequence(nn.ModuleList(blocks), eagerly_discard_variables = True)
+        self.sequence = rv.ReversibleSequence(nn.ModuleList(blocks))
 
         #non-reversible convolution to get to 10 channels (one for each label)
         self.conv2 = nn.Conv2d(32, 10, 3)

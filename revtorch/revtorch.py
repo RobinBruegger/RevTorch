@@ -161,7 +161,7 @@ class _ReversibleModuleFunction(torch.autograd.function.Function):
         if ctx.eagerly_discard_variables:
             del ctx.y
         for i in range(len(ctx.reversible_blocks) - 1, -1, -1):
-            y, dy = ctx.reversible_blocks[i].backward_pass(y, dy, ctx.multiple_backwards)
+            y, dy = ctx.reversible_blocks[i].backward_pass(y, dy, not ctx.eagerly_discard_variables)
         if ctx.eagerly_discard_variables:
             del ctx.reversible_blocks
         return dy, None, None
@@ -175,9 +175,10 @@ class ReversibleSequence(nn.Module):
     the reversible sequece to save memory.
 
     Arguments:
-        reversible_blocks (nn.ModuleList): A ModuleList that exclusivly contains instances of ReversibleBlock whic
+        reversible_blocks (nn.ModuleList): A ModuleList that exclusivly contains instances of ReversibleBlock
         which are to be used in the reversible sequence.
-        eagerly_discard_variables (bool): Should the module eagerly discard the output and not retain the graph for the individual backwards called on the reversible blocks, for further memory savings
+        eagerly_discard_variables (bool): If set to true backward() discards the variables requried for 
+		calculating the gradient and therefore saves memory. Disable if you call backward() multiple times.
     '''
 
     def __init__(self, reversible_blocks, eagerly_discard_variables = True):
