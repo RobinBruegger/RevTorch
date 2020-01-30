@@ -102,6 +102,9 @@ Tested with Python 3.6 and PyTorch 1.1.0. Should work with any version of Python
 
 ## Changelog
 
+#### Version 0.2.4
+- Added option to disable eager discarding of variables to allow for multiple backward() calls
+
 #### Version 0.2.3
 - Added option to use the same random seed for the forward and backwar pass ([Pull request](https://github.com/RobinBruegger/RevTorch/pull/4))
 
