@@ -52,7 +52,7 @@ class ReversibleBlock(nn.Module):
 
         return torch.cat([y1, y2], dim=self.split_along_dim)
 
-    def backward_pass(self, y, dy):
+    def backward_pass(self, y, dy, retain_graph):
         """
         Performs the backward pass of the reversible block.
 
@@ -61,6 +61,7 @@ class ReversibleBlock(nn.Module):
 
         :param y: Outputs of the reversible block
         :param dy: Derivatives of the outputs
+        :param retain_graph: Whether to retain the graph on intercepted backwards
         :return: A tuple of (block input, block input derivatives). The block inputs are the same shape as the block outptus.
         """
         
@@ -86,7 +87,7 @@ class ReversibleBlock(nn.Module):
 
             # Use autograd framework to differentiate the calculation. The
             # derivatives of the parameters of G are set as a side effect
-            gy1.backward(dy2)
+            gy1.backward(dy2, retain_graph = retain_graph)
 
         with torch.no_grad():
             x2 = y2 - gy1 # Restore first input of forward()
@@ -106,7 +107,7 @@ class ReversibleBlock(nn.Module):
 
             # Use autograd framework to differentiate the calculation. The
             # derivatives of the parameters of F are set as a side effec
-            fx2.backward(dx1)
+            fx2.backward(dx1, retain_graph = retain_graph)
 
         with torch.no_grad():
             x1 = y1 - fx2 # Restore second input of forward()
@@ -131,7 +132,7 @@ class _ReversibleModuleFunction(torch.autograd.function.Function):
     '''
 
     @staticmethod
-    def forward(ctx, x, reversible_blocks):
+    def forward(ctx, x, reversible_blocks, eagerly_discard_variables):
         '''
         Performs the forward pass of a reversible sequence within the autograd framework
         :param ctx: autograd context
@@ -145,6 +146,7 @@ class _ReversibleModuleFunction(torch.autograd.function.Function):
             x = block(x)
         ctx.y = x.detach() #not using ctx.save_for_backward(x) saves us memory by beeing able to free ctx.y earlier in the backward pass
         ctx.reversible_blocks = reversible_blocks
+        ctx.eagerly_discard_variables = eagerly_discard_variables
         return x
 
     @staticmethod
@@ -156,11 +158,13 @@ class _ReversibleModuleFunction(torch.autograd.function.Function):
         :return: derivatives of the inputs
         '''
         y = ctx.y
-        del ctx.y
+        if ctx.eagerly_discard_variables:
+            del ctx.y
         for i in range(len(ctx.reversible_blocks) - 1, -1, -1):
-            y, dy = ctx.reversible_blocks[i].backward_pass(y, dy)
-        del ctx.reversible_blocks
-        return dy, None
+            y, dy = ctx.reversible_blocks[i].backward_pass(y, dy, not ctx.eagerly_discard_variables)
+        if ctx.eagerly_discard_variables:
+            del ctx.reversible_blocks
+        return dy, None, None
 
 class ReversibleSequence(nn.Module):
     '''
@@ -171,17 +175,20 @@ class ReversibleSequence(nn.Module):
     the reversible sequece to save memory.
 
     Arguments:
-        reversible_blocks (nn.ModuleList): A ModuleList that exclusivly contains instances of ReversibleBlock whic
+        reversible_blocks (nn.ModuleList): A ModuleList that exclusivly contains instances of ReversibleBlock
         which are to be used in the reversible sequence.
+        eagerly_discard_variables (bool): If set to true backward() discards the variables requried for 
+		calculating the gradient and therefore saves memory. Disable if you call backward() multiple times.
     '''
 
-    def __init__(self, reversible_blocks):
+    def __init__(self, reversible_blocks, eagerly_discard_variables = True):
         super(ReversibleSequence, self).__init__()
         assert (isinstance(reversible_blocks, nn.ModuleList))
         for block in reversible_blocks:
             assert(isinstance(block, ReversibleBlock))
 
         self.reversible_blocks = reversible_blocks
+        self.eagerly_discard_variables = eagerly_discard_variables
 
     def forward(self, x):
         '''
@@ -189,5 +196,5 @@ class ReversibleSequence(nn.Module):
         :param x: Input tensor
         :return: Output tensor
         '''
-        x = _ReversibleModuleFunction.apply(x, self.reversible_blocks)
+        x = _ReversibleModuleFunction.apply(x, self.reversible_blocks, self.eagerly_discard_variables)
         return x
