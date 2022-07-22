@@ -1,3 +1,6 @@
+from typing import List, Union
+from itertools import cycle
+
 import torch
 import torch.nn as nn
 #import torch.autograd.function as func
@@ -5,10 +8,17 @@ import sys
 import random
 
 
-def flip_running_stats(module: nn.Module) -> None:
+def set_running_stats(module: nn.Module, flags: Union[bool, List[bool]]) -> List[bool]:
+    prev_flags = []
+    flags_gen = iter(flags) if isinstance(flags, list) else cycle([flags])
+
     for submodule in module.modules():
-        if getattr(submodule, 'track_running_stats', None) is not None:
-            submodule.track_running_stats = not submodule.track_running_stats
+        track_running_stats = getattr(submodule, 'track_running_stats', None)
+        if track_running_stats is not None:
+            prev_flags.append(track_running_stats)
+            submodule.track_running_stats = next(flags_gen)
+
+    return prev_flags
 
 
 class ReversibleBlock(nn.Module):
@@ -91,9 +101,9 @@ class ReversibleBlock(nn.Module):
         with torch.enable_grad():
             self._set_seed('g')
 
-            flip_running_stats(self.g_block)
+            prev_flags = set_running_stats(self.g_block, False)
             gy1 = self.g_block(y1)
-            flip_running_stats(self.g_block)
+            set_running_stats(self.g_block, prev_flags)
 
             # Use autograd framework to differentiate the calculation. The
             # derivatives of the parameters of G are set as a side effect
@@ -114,9 +124,9 @@ class ReversibleBlock(nn.Module):
             x2.requires_grad = True
             self._set_seed('f')
 
-            flip_running_stats(self.f_block)
+            prev_flags = set_running_stats(self.f_block, False)
             fx2 = self.f_block(x2)
-            flip_running_stats(self.f_block)
+            set_running_stats(self.f_block, prev_flags)
 
             # Use autograd framework to differentiate the calculation. The
             # derivatives of the parameters of F are set as a side effec
