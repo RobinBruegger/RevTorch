@@ -1,8 +1,25 @@
+from typing import List, Union
+from itertools import cycle
+
 import torch
 import torch.nn as nn
 #import torch.autograd.function as func
 import sys
 import random
+
+
+def set_running_stats(module: nn.Module, flags: Union[bool, List[bool]]) -> List[bool]:
+    prev_flags = []
+    flags_gen = iter(flags) if isinstance(flags, list) else cycle([flags])
+
+    for submodule in module.modules():
+        track_running_stats = getattr(submodule, 'track_running_stats', None)
+        if track_running_stats is not None:
+            prev_flags.append(track_running_stats)
+            submodule.track_running_stats = next(flags_gen)
+
+    return prev_flags
+
 
 class ReversibleBlock(nn.Module):
     '''
@@ -83,7 +100,10 @@ class ReversibleBlock(nn.Module):
         # Ensures that PyTorch tracks the operations in a DAG
         with torch.enable_grad():
             self._set_seed('g')
+
+            prev_flags = set_running_stats(self.g_block, False)
             gy1 = self.g_block(y1)
+            set_running_stats(self.g_block, prev_flags)
 
             # Use autograd framework to differentiate the calculation. The
             # derivatives of the parameters of G are set as a side effect
@@ -103,7 +123,10 @@ class ReversibleBlock(nn.Module):
         with torch.enable_grad():
             x2.requires_grad = True
             self._set_seed('f')
+
+            prev_flags = set_running_stats(self.f_block, False)
             fx2 = self.f_block(x2)
+            set_running_stats(self.f_block, prev_flags)
 
             # Use autograd framework to differentiate the calculation. The
             # derivatives of the parameters of F are set as a side effec
