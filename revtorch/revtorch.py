@@ -4,6 +4,13 @@ import torch.nn as nn
 import sys
 import random
 
+
+def flip_running_stats(module: nn.Module) -> None:
+    for submodule in module.modules():
+        if getattr(submodule, 'track_running_stats', None) is not None:
+            submodule.track_running_stats = not submodule.track_running_stats
+
+
 class ReversibleBlock(nn.Module):
     '''
     Elementary building block for building (partially) reversible architectures
@@ -83,7 +90,10 @@ class ReversibleBlock(nn.Module):
         # Ensures that PyTorch tracks the operations in a DAG
         with torch.enable_grad():
             self._set_seed('g')
+
+            flip_running_stats(self.g_block)
             gy1 = self.g_block(y1)
+            flip_running_stats(self.g_block)
 
             # Use autograd framework to differentiate the calculation. The
             # derivatives of the parameters of G are set as a side effect
@@ -103,7 +113,10 @@ class ReversibleBlock(nn.Module):
         with torch.enable_grad():
             x2.requires_grad = True
             self._set_seed('f')
+
+            flip_running_stats(self.f_block)
             fx2 = self.f_block(x2)
+            flip_running_stats(self.f_block)
 
             # Use autograd framework to differentiate the calculation. The
             # derivatives of the parameters of F are set as a side effec
