@@ -83,7 +83,9 @@ class ReversibleBlock(nn.Module):
         # Ensures that PyTorch tracks the operations in a DAG
         with torch.enable_grad():
             self._set_seed('g')
-            gy1 = self.g_block(y1)
+
+            with torch.cuda.amp.autocast():
+                gy1 = self.g_block(y1)
 
             # Use autograd framework to differentiate the calculation. The
             # derivatives of the parameters of G are set as a side effect
@@ -103,7 +105,9 @@ class ReversibleBlock(nn.Module):
         with torch.enable_grad():
             x2.requires_grad = True
             self._set_seed('f')
-            fx2 = self.f_block(x2)
+
+            with torch.cuda.amp.autocast():
+                fx2 = self.f_block(x2)
 
             # Use autograd framework to differentiate the calculation. The
             # derivatives of the parameters of F are set as a side effec
