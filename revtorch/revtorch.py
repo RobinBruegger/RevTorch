@@ -84,7 +84,8 @@ class ReversibleBlock(nn.Module):
         with torch.enable_grad():
             self._set_seed('g')
 
-            with torch.cuda.amp.autocast():
+            g_dtype = next(self.g_block.parameters()).dtype
+            with torch.cuda.amp.autocast(enabled = g_dtype != y1.dtype):
                 gy1 = self.g_block(y1)
 
             # Use autograd framework to differentiate the calculation. The
@@ -106,7 +107,8 @@ class ReversibleBlock(nn.Module):
             x2.requires_grad = True
             self._set_seed('f')
 
-            with torch.cuda.amp.autocast():
+            f_dtype = next(self.f_block.parameters()).dtype
+            with torch.cuda.amp.autocast(enabled = f_dtype != x2.dtype):
                 fx2 = self.f_block(x2)
 
             # Use autograd framework to differentiate the calculation. The
